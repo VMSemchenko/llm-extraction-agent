@@ -1,0 +1,56 @@
+{
+  "dataset": "technical_sync",
+  "provider": "gemini",
+  "json_valid": true,
+  "latency": 7.81,
+  "tokens_in": 344,
+  "tokens_out": 231,
+  "tokens_total": 575,
+  "cost": 5.8e-05,
+  "result": {
+    "summary": "Зустріч була присвячена обговоренню прогресу міграції на Kubernetes, налаштування моніторингу, оптимізації бази даних та прийняттю ключових технічних рішень.",
+    "tasks": [
+      {
+        "owner": "Сергій",
+        "task": "Розібратись з persistent volumes і ingress controller для Kubernetes production.",
+        "deadline": "20 травня"
+      },
+      {
+        "owner": "Сергій",
+        "task": "Переписати CI/CD pipeline під ArgoCD.",
+        "deadline": "20 травня"
+      },
+      {
+        "owner": "Наталя",
+        "task": "Налаштувати Prometheus + Grafana стек і написати алерти для CPU, memory та latency p99.",
+        "deadline": "14 травня"
+      },
+      {
+        "owner": "Наталя",
+        "task": "Допомогти Сергію з мережевими політиками для Kubernetes production.",
+        "deadline": "20 травня"
+      },
+      {
+        "owner": "Олексій",
+        "task": "Переписати ORM запити на raw SQL з JOIN-ами в модулі звітності.",
+        "deadline": "16 травня"
+      },
+      {
+        "owner": "Олексій",
+        "task": "Додати індекси на таблиці transactions і user_sessions.",
+        "deadline": "16 травня"
+      },
+      {
+        "owner": "Олексій",
+        "task": "Зробити load testing після оптимізації бази даних.",
+        "deadline": "16 травня"
+      }
+    ],
+    "decisions": [
+      "Перехід на GitOps workflow через ArgoCD.",
+      "Зберігання всіх секретів у HashiCorp Vault замість .env файлів.",
+      "Мінімальний test coverage для нових сервісів — 80%.",
+      "Використання multi-stage builds для всіх Docker images для зменшення розміру."
+    ]
+  }
+}

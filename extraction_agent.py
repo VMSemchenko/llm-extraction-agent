@@ -3,7 +3,7 @@
 LLM Extraction Agent — Lesson 06 Homework
 
 Витягує структуровані дані (JSON) з неструктурованих транскриптів зустрічей.
-Підтримує два провайдери: Ollama (self-hosted) та OpenAI (cloud).
+Підтримує провайдери: Ollama (self-hosted) та Google Gemini (cloud).
 """
 
 import json
@@ -18,17 +18,19 @@ import requests
 from dotenv import load_dotenv
 
 try:
-    import openai
-    HAS_OPENAI = True
+    from google import genai
+    from google.genai import types
+    HAS_GEMINI = True
 except ImportError:
-    HAS_OPENAI = False
+    HAS_GEMINI = False
 
 load_dotenv()
 
 # ── CONFIG ──
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
+GEMINI_MODEL = os.getenv("LLM_MODEL", "gemini-2.0-flash")
 RESULTS_DIR = Path("results")
 RESULTS_DIR.mkdir(exist_ok=True)
 
@@ -49,33 +51,25 @@ def call_ollama(prompt: str) -> str:
     return response.json()["response"]
 
 
-# ── OPENAI (cloud) ──
-def call_openai(prompt: str) -> str:
-    """Викликає GPT-4o-mini через OpenAI API"""
-    if not HAS_OPENAI:
-        raise RuntimeError("openai package is not installed. Run: pip install openai")
+# ── GOOGLE GEMINI (cloud) ──
+def call_gemini(prompt: str) -> str:
+    """Викликає Gemini через Google AI API"""
+    if not HAS_GEMINI:
+        raise RuntimeError("google-genai package is not installed. Run: pip install google-genai")
 
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key or api_key.startswith("sk-your"):
-        raise RuntimeError("Set a valid OPENAI_API_KEY in .env")
+    if not GOOGLE_API_KEY:
+        raise RuntimeError("Set GOOGLE_API_KEY in .env")
 
-    client = openai.OpenAI(api_key=api_key)
-    response = client.chat.completions.create(
-        model=OPENAI_MODEL,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a meeting transcription parser. "
-                    "Extract tasks, decisions, and a summary from meeting text. "
-                    "Return ONLY valid JSON, no markdown, no extra text."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ],
-        response_format={"type": "json_object"},
+    client = genai.Client(api_key=GOOGLE_API_KEY)
+    response = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0.1,
+        ),
     )
-    return response.choices[0].message.content
+    return response.text
 
 
 # ── EXTRACTION LOGIC ──
@@ -110,7 +104,7 @@ def extract_meeting_data(text: str, provider: str = "ollama") -> dict:
 
     Args:
         text: Транскрипт зустрічі
-        provider: "ollama" або "openai"
+        provider: "ollama" або "gemini"
 
     Returns:
         dict з ключами: result, latency, tokens_in, tokens_out, tokens_total, cost, json_valid
@@ -122,8 +116,8 @@ def extract_meeting_data(text: str, provider: str = "ollama") -> dict:
     try:
         if provider == "ollama":
             response_text = call_ollama(prompt)
-        elif provider == "openai":
-            response_text = call_openai(prompt)
+        elif provider == "gemini":
+            response_text = call_gemini(prompt)
         else:
             raise ValueError(f"Unknown provider: {provider}")
     except Exception as e:
@@ -143,9 +137,9 @@ def extract_meeting_data(text: str, provider: str = "ollama") -> dict:
     tokens_out = estimate_tokens(response_text)
     tokens_total = tokens_in + tokens_out
 
-    # Cost calculation
-    if provider == "openai":
-        cost = (tokens_total / 1_000_000) * 0.30  # $0.30 per 1M tokens (4o-mini avg)
+    # Cost calculation (Gemini 2.0 Flash: ~$0.10 per 1M tokens)
+    if provider == "gemini":
+        cost = (tokens_total / 1_000_000) * 0.10
     else:
         cost = 0.0
 
@@ -183,19 +177,19 @@ def run_single(filepath: str, provider: str) -> dict:
     dataset_name = Path(filepath).stem
 
     icon = "\U0001f916" if provider == "ollama" else "\u2601\ufe0f "
-    print(f"\n{icon}  {provider.upper()} — {dataset_name}")
-    print(f"   Запит до {provider}...")
+    print(f"\n{icon}  {provider.upper()} \u2014 {dataset_name}")
+    print(f"   \u0417\u0430\u043f\u0438\u0442 \u0434\u043e {provider}...")
 
     data = extract_meeting_data(text, provider)
 
     if data["json_valid"]:
-        print(f"   \u2705 JSON валідний | Latency: {data['latency']}s | Tokens: {data['tokens_total']} | Cost: ${data['cost']}")
+        print(f"   \u2705 JSON \u0432\u0430\u043b\u0456\u0434\u043d\u0438\u0439 | Latency: {data['latency']}s | Tokens: {data['tokens_total']} | Cost: ${data['cost']}")
         tasks_count = len(data["result"].get("tasks", [])) if data["result"] else 0
         decisions_count = len(data["result"].get("decisions", [])) if data["result"] else 0
         print(f"   \U0001f4cb Tasks: {tasks_count} | Decisions: {decisions_count}")
         print(f"   \U0001f4dd Summary: {data['result'].get('summary', 'N/A')[:100]}")
     else:
-        print(f"   \u274c JSON невалідний | Latency: {data['latency']}s")
+        print(f"   \u274c JSON \u043d\u0435\u0432\u0430\u043b\u0456\u0434\u043d\u0438\u0439 | Latency: {data['latency']}s")
         print(f"   Raw: {data.get('raw_response', '')[:200]}")
 
     # Save result
@@ -277,13 +271,13 @@ if __name__ == "__main__":
     parser.add_argument("--all", action="store_true", help="Run on all sample files")
     parser.add_argument(
         "--provider",
-        choices=["ollama", "openai", "both"],
+        choices=["ollama", "gemini", "both"],
         default="ollama",
         help="LLM provider (default: ollama)",
     )
     args = parser.parse_args()
 
-    providers = ["ollama", "openai"] if args.provider == "both" else [args.provider]
+    providers = ["ollama", "gemini"] if args.provider == "both" else [args.provider]
 
     if args.all:
         run_all(providers)
@@ -291,8 +285,7 @@ if __name__ == "__main__":
         for p in providers:
             run_single(args.file, p)
     else:
-        # Default: run all with ollama only
         print("\u2139\ufe0f  No file specified. Running on all samples with Ollama...")
-        print("   Use --provider both to also test OpenAI")
-        print("   Use --provider openai to test only OpenAI")
+        print("   Use --provider both to also test Gemini")
+        print("   Use --provider gemini to test only Gemini")
         run_all(providers)

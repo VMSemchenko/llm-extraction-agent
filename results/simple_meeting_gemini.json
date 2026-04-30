@@ -1,0 +1,35 @@
+{
+  "dataset": "simple_meeting",
+  "provider": "gemini",
+  "json_valid": true,
+  "latency": 3.39,
+  "tokens_in": 232,
+  "tokens_out": 117,
+  "tokens_total": 349,
+  "cost": 3.5e-05,
+  "result": {
+    "summary": "На зустрічі обговорювалися завдання щодо нового дашборду та модуля користувачів, а також були прийняті рішення щодо технологічного стеку та процесу розробки.",
+    "tasks": [
+      {
+        "owner": "Іван",
+        "task": "Дизайн UI нового dashboard",
+        "deadline": "10 травня"
+      },
+      {
+        "owner": "Мартин",
+        "task": "Розробка API для модуля користувачів (endpoints для реєстрації, логіну, профілю)",
+        "deadline": "15 травня"
+      },
+      {
+        "owner": "Олена",
+        "task": "Тестування API endpoints для модуля користувачів",
+        "deadline": "18 травня"
+      }
+    ],
+    "decisions": [
+      "Використовувати React для frontend",
+      "Використовувати PostgreSQL для бази даних",
+      "Code review є обов'язковим перед кожним merge"
+    ]
+  }
+}

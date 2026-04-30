@@ -1,0 +1,29 @@
+{
+  "dataset": "chaotic_standup",
+  "provider": "gemini",
+  "json_valid": true,
+  "latency": 4.9,
+  "tokens_in": 280,
+  "tokens_out": 91,
+  "tokens_total": 371,
+  "cost": 3.7e-05,
+  "result": {
+    "summary": "Зустріч була присвячена обговоренню статусу реалізації авторизації, мокапів для нового онбордінгу, а також прийняттю рішень щодо впровадження dark mode та переходу на TypeScript.",
+    "tasks": [
+      {
+        "owner": "Богдан",
+        "task": "Виправити баг з refresh token в авторизації (OAuth)",
+        "deadline": "Понеділок"
+      },
+      {
+        "owner": "Андрій",
+        "task": "Інтегрувати мокапи нового онбордінгу в мобільний додаток",
+        "deadline": "Четвер"
+      }
+    ],
+    "decisions": [
+      "Робити dark mode в наступному спрінті",
+      "Перейти на TypeScript"
+    ]
+  }
+}
