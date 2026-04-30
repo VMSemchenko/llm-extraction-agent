@@ -1,0 +1,11 @@
+{
+  "dataset": "simple_meeting",
+  "provider": "ollama",
+  "json_valid": false,
+  "latency": 7.06,
+  "tokens_in": 232,
+  "tokens_out": 107,
+  "tokens_total": 339,
+  "cost": 0.0,
+  "result": null
+}

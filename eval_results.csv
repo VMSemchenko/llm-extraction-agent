@@ -1,0 +1,4 @@
+dataset,provider,json_valid,latency,tokens_in,tokens_out,tokens_total,cost,tasks_found
+chaotic_standup,ollama,True,16.53,280,65,345,0.0,1
+simple_meeting,ollama,False,7.06,232,107,339,0.0,0
+technical_sync,ollama,True,9.76,344,157,501,0.0,3

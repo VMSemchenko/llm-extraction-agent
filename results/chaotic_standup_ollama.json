@@ -1,0 +1,24 @@
+{
+  "dataset": "chaotic_standup",
+  "provider": "ollama",
+  "json_valid": true,
+  "latency": 16.53,
+  "tokens_in": 280,
+  "tokens_out": 65,
+  "tokens_total": 345,
+  "cost": 0.0,
+  "result": {
+    "summary": "Богдан і Катерина обговорюють проблеми з OAuth авторизацією та внесення змін до dark mode та TypeScript. Катерина розповідає Андрію про готовість нового онбордингу.",
+    "tasks": [
+      {
+        "owner": "Богдан",
+        "task": "Ремонт OAuth авторизації",
+        "deadline": "Понеділок"
+      }
+    ],
+    "decisions": [
+      "Вирішено перейти на dark mode в наступному спрінті",
+      "Вирішено перейти на TypeScript"
+    ]
+  }
+}
