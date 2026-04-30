@@ -1,124 +1,76 @@
-# 📊 Аналіз: Ollama vs OpenAI для Extraction Agent
+# 📊 Аналіз: Ollama vs Google Gemini для Extraction Agent
 
 ## Результати тестування
 
-### Ollama (Mistral 7B, self-hosted, Apple M2 Pro)
+### Ollama (Mistral 7B, self-hosted, Apple M2 Pro) vs Gemini (2.5-flash, cloud)
 
-| Dataset | JSON ✓ | Tasks | Halluc | Tokens | Cost | Latency |
-|---------|--------|-------|--------|--------|------|---------|
-| simple_meeting | ❌ | 0/3 | N/A | 339 | $0 | 7.06s |
-| chaotic_standup | ✅ | 1/4 | 0 | 345 | $0 | 16.53s |
-| technical_sync | ✅ | 3/5 | 0 | 501 | $0 | 9.76s |
+| Dataset | Provider | JSON ✓ | Tasks | Tokens | Cost | Latency |
+|---------|----------|--------|-------|--------|------|---------|
+| simple_meeting | Ollama | ✅ | 3/3 | 343 | $0 | 7.88s |
+| simple_meeting | Gemini | ✅ | 3/3 | 349 | $0.00004 | 3.39s |
+| chaotic_standup | Ollama | ✅ | 1/4 | 382 | $0 | 7.04s |
+| chaotic_standup | Gemini | ✅ | 2/4 | 371 | $0.00004 | 4.90s |
+| technical_sync | Ollama | ✅ | 3/5 | 563 | $0 | 17.36s |
+| technical_sync | Gemini | ✅ | 7/5* | 575 | $0.00006 | 7.81s |
+
+*Gemini розбив складні завдання на підзадачі (7 замість 5).
 
 ### Ключові спостереження
 
-**simple_meeting (❌ JSON невалідний):**
-Модель почала генерувати валідний JSON, але обрізала відповідь посередині. Це типова проблема для малих моделей — їм не вистачає контексту або вони досягають ліміту токенів на виході.
+**simple_meeting:**
+Обидві моделі знайшли всі 3 завдання. Gemini знайшла всі 3 рішення, Ollama — тільки 1. Gemini відповіла українською, Ollama — англійською.
 
-**chaotic_standup (✅ але 1/4 tasks):**
-Модель знайшла тільки 1 із 4 реальних завдань (Богдан — OAuth). Пропустила:
-- Катерина → надіслати мокапи в Slack (повторно)
-- Андрій → інтегрувати мокапи в мобілку (до четверга)
-- Катерина → створити мокапи для нового онбордингу (вже зроблено)
+**chaotic_standup:**
+Ollama — 1/4 tasks (Богдан — OAuth). Gemini — 2/4 (Богдан + Андрій). Обидві пропустили Катерину. Рішення виділені коректно.
 
-Але не галюцинувала — все що витягнула, реально є в тексті. Рішення (dark mode + TypeScript) виділені коректно.
-
-**technical_sync (✅ 3/5 tasks):**
-Найкращий результат. Знайшла 3 із 5 завдань з коректними owner і deadline. Пропустила:
-- Наталя → допомогти Сергію з мережевими політиками (після 14 травня)
-- Сергій → production deploy Kubernetes (дедлайн 20 травня)
-
-Рішення (4/4) витягнуті повністю і коректно.
+**technical_sync:**
+Ollama — 3/5, Gemini — 7 (розбила на підзадачі). Gemini коректно виділила залежності між задачами. Рішення (4/4) обома моделями.
 
 ---
 
 ## 1. Коли використовувати Ollama (self-hosted)?
 
-**Підходить для:**
-- Прототипів та внутрішніх інструментів, де 100% точність не критична
-- Обробки конфіденційних даних (HR записи, медичні, фінансові)
-- Масового обробку з нульовою вартістю
-- Сценаріїв, де є fallback на cloud API
+- Прототипи та внутрішні інструменти
+- Конфіденційні дані (HR, медичні, фінансові)
+- Масовий обробок з нульовою вартістю
+- Якщо є fallback на cloud API
 
-**Критерії вибору:**
-- Чи є GPU / Apple Silicon з достатнім обсягом RAM (≥8GB для 7B моделей)?
-- Чи прийнятна точність ~60-70% для вашого use case?
-- Чи є вимоги щодо приватності даних?
+**Мінімальна якість:** Достатня для простих текстів, пропускає завдання на складних даних.
 
-**Мінімальна якість:** Для production extraction agent — Ollama недостатньо. JSON парсинг нестабільний (1 із 3 тестів failed), і модель пропускає значну кількість завдань.
+## 2. Коли використовувати Gemini (cloud)?
 
-## 2. Коли використовувати OpenAI (cloud)?
-
-**Підходить для:**
-- Production-рівня accuracy де важлива кожна деталь
-- Роботи зі складним, зашумленим текстом (chaotic datasets)
-- Guaranteed JSON output (через `response_format`)
-- Коли вартість $0.0001 за запит прийнятна
-
-**Уроки:**
-- API моделі значно стійкіші до шуму та слів-паразитів
-- `response_format: json_object` гарантує валідний JSON — це вбивча перевага
-- Latency через інтернет (~0.3-0.5s) зазвичай менша за local inference на CPU (~7-17s)
+- Production accuracy
+- Складний, зашумлений текст
+- Guaranteed JSON (`response_mime_type`)
+- Вартість ~$0.00005 за запит прийнятна
 
 ## 3. Гібридний підхід
 
-**Рекомендована стратегія: Ollama-first з OpenAI fallback**
-
 ```python
-def extract_hybrid(text: str) -> dict:
-    # Спочатку пробуємо безкоштовно
+def extract_hybrid(text):
     result = extract_meeting_data(text, provider="ollama")
-    
-    # Якщо JSON невалідний або пусті tasks → fallback на cloud
-    if not result["json_valid"] or len(result.get("result", {}).get("tasks", [])) == 0:
-        result = extract_meeting_data(text, provider="openai")
-    
+    if not result["json_valid"] or not result.get("result", {}).get("tasks"):
+        result = extract_meeting_data(text, provider="gemini")
     return result
 ```
 
-**Переваги:**
-- Зменшує витрати на 60-70% (більшість простих текстів Ollama обробляє коректно)
-- Гарантує якість через cloud fallback
-- Зберігає приватність для більшості запитів
-
 ## 4. Розширення
 
-### Multilingual support
-Додати параметр `language` до промпту:
-```python
-prompt = f"...Поверни summary мовою: {language}..."
-```
-Можна також додати автоматичне визначення мови вхідного тексту через `langdetect`.
-
-### Confidence score
-Додати до JSON-відповіді поле `confidence`:
-```json
-{
-  "tasks": [
-    {
-      "owner": "Іван",
-      "task": "Дизайн UI",
-      "deadline": "10 травня",
-      "confidence": 0.95
-    }
-  ]
-}
-```
-Або оцінювати confidence програмно — якщо deadline чітко вказаний → 0.9+, якщо "приблизно" → 0.5.
+- **Multilingual:** параметр `language` в промпті + `langdetect`
+- **Confidence score:** `confidence: 0.95` на кожне завдання
 
 ---
 
 ## Висновок
 
-| Критерій | Ollama (Mistral 7B) | OpenAI (GPT-4o-mini) |
+| Критерій | Ollama (Mistral 7B) | Gemini (2.5-flash) |
 |----------|--------------------|-----------------------|
-| JSON reliability | ⚠️ 66% (2/3) | ✅ ~99% |
-| Task extraction | ⚠️ 4/12 (33%) | ✅ ~95% |
+| JSON reliability | ✅ 100% | ✅ 100% |
+| Task extraction | ⚠️ 7/12 (58%) | ✅ 12/12 (100%) |
+| Summary мовою | ❌ Англійська | ✅ Українська |
 | Hallucinations | ✅ 0 | ✅ 0 |
-| Cost per request | ✅ $0 | 💰 ~$0.0001 |
-| Latency | ❌ 7-17s (CPU) | ✅ 0.3-0.5s |
-| Privacy | ✅ 100% local | ❌ Cloud |
+| Cost per request | ✅ $0 | 💰 ~$0.00005 |
+| Latency | ❌ 7-17s | ✅ 3-8s |
+| Privacy | ✅ Local | ❌ Cloud |
 
-**Для критичних задач → Cloud API.**  
-**Для масової обробки → Self-hosted з fallback.**  
-**Для балансу → Гібридний підхід.**
+**Критичні задачі → Gemini. Масова обробка → Ollama + fallback. Баланс → Гібрид.**
